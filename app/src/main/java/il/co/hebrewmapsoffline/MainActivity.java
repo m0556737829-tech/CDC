@@ -353,7 +353,7 @@ public final class MainActivity extends Activity {
             if (!settled.add(current.id)) continue;
             visited++;
             if (current.id == goal.id) { reached = true; break; }
-            try (Cursor c = db.rawQuery("SELECT to_id,distance_m FROM roads WHERE from_id=? AND " + column + "=1", new String[]{Long.toString(current.id)})) {
+            try (Cursor c = db.rawQuery("SELECT r.to_id,r.distance_m,n.lat,n.lon FROM roads r JOIN road_nodes n ON n.id=r.to_id WHERE r.from_id=? AND r." + column + "=1", new String[]{Long.toString(current.id)})) {
                 while (c.moveToNext()) {
                     long next = c.getLong(0);
                     if (settled.contains(next)) continue;
@@ -362,8 +362,7 @@ public final class MainActivity extends Activity {
                     if (old == null || nextCost < old) {
                         costs.put(next, nextCost);
                         previous.put(next, current.id);
-                        RoadNode n = nodeById(db, next);
-                        if (n != null) open.add(new RouteState(next, nextCost, nextCost + distance(n.lat, n.lon, goal.lat, goal.lon)));
+                        open.add(new RouteState(next, nextCost, nextCost + distance(c.getDouble(2), c.getDouble(3), goal.lat, goal.lon)));
                     }
                 }
             }
@@ -391,8 +390,8 @@ public final class MainActivity extends Activity {
         RoadNode best = null;
         double bestDistance = Double.MAX_VALUE;
         for (double radius : new double[]{0.02, 0.08, 0.25}) {
-            try (Cursor c = db.rawQuery("SELECT id,lat,lon FROM road_nodes WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? LIMIT 5000",
-                    new String[]{Double.toString(lat-radius), Double.toString(lat+radius), Double.toString(lon-radius), Double.toString(lon+radius)})) {
+            try (Cursor c = db.rawQuery("SELECT id,lat,lon FROM road_nodes WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? ORDER BY ((lat-?)*(lat-?)+(lon-?)*(lon-?)) LIMIT 5000",
+                    new String[]{Double.toString(lat-radius), Double.toString(lat+radius), Double.toString(lon-radius), Double.toString(lon+radius), Double.toString(lat), Double.toString(lat), Double.toString(lon), Double.toString(lon)})) {
                 while (c.moveToNext()) {
                     double d = distance(lat, lon, c.getDouble(1), c.getDouble(2));
                     if (d < bestDistance) { bestDistance = d; best = new RoadNode(c.getLong(0), c.getDouble(1), c.getDouble(2)); }
@@ -413,7 +412,8 @@ public final class MainActivity extends Activity {
     private double distance(double lat1, double lon1, double lat2, double lon2) {
         double p1 = Math.toRadians(lat1), p2 = Math.toRadians(lat2);
         double dp = Math.toRadians(lat2-lat1), dl = Math.toRadians(lon2-lon1);
-        double a = Math.sin(dp/2)*Math.sin(dp/2) + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)*Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2);
+        double sinDp = Math.sin(dp/2), sinDl = Math.sin(dl/2);
+        double a = sinDp*sinDp + Math.cos(p1)*Math.cos(p2)*sinDl*sinDl;
         return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
