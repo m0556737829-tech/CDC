@@ -33,7 +33,10 @@ class Extract(osmium.SimpleHandler):
         t = tags_to_dict(n.tags)
         names = [t.get(k, "") for k in ("name:he", "name", "name:en", "official_name", "alt_name")]
         names = [x.strip() for x in names if x and x.strip()]
-        if names and (t.get("place") or t.get("amenity") or t.get("shop") or t.get("tourism") or t.get("leisure") or t.get("railway") or t.get("public_transport") or t.get("highway") == "bus_stop"):
+        address = " ".join(x for x in (t.get("addr:housenumber", ""), t.get("addr:street", ""), t.get("addr:city", "")) if x)
+        if not names and address:
+            names = [address]
+        if names and (t.get("place") or t.get("amenity") or t.get("shop") or t.get("tourism") or t.get("leisure") or t.get("railway") or t.get("public_transport") or t.get("highway") == "bus_stop" or address):
             name = names[0]
             aliases = " ".join(dict.fromkeys(names))
             kind = t.get("place") or t.get("amenity") or t.get("shop") or t.get("tourism") or t.get("leisure") or t.get("railway") or "point"
@@ -49,15 +52,17 @@ class Extract(osmium.SimpleHandler):
                 coords.append((nd.ref, float(nd.location.lat), float(nd.location.lon)))
         if not coords:
             return
-        if t.get("name") or t.get("name:he") or t.get("name:en"):
-            names = [t.get(k, "") for k in ("name:he", "name", "name:en", "official_name", "alt_name")]
-            names = [x.strip() for x in names if x and x.strip()]
-            if names:
-                lat = sum(p[1] for p in coords) / len(coords)
-                lon = sum(p[2] for p in coords) / len(coords)
-                place_rows.append((names[0], " ".join(dict.fromkeys(names)), lat, lon, highway or "road"))
-                if len(place_rows) >= 5000:
-                    flush_places()
+        names = [t.get(k, "") for k in ("name:he", "name", "name:en", "official_name", "alt_name")]
+        names = [x.strip() for x in names if x and x.strip()]
+        address = " ".join(x for x in (t.get("addr:housenumber", ""), t.get("addr:street", ""), t.get("addr:city", "")) if x)
+        if not names and address:
+            names = [address]
+        if names:
+            lat = sum(p[1] for p in coords) / len(coords)
+            lon = sum(p[2] for p in coords) / len(coords)
+            place_rows.append((names[0], " ".join(dict.fromkeys(names)), lat, lon, highway or "address"))
+            if len(place_rows) >= 5000:
+                flush_places()
         if not highway:
             return
         excluded_car = {"footway","path","pedestrian","steps","cycleway","bridleway","corridor","platform"}
