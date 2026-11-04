@@ -13,7 +13,7 @@ import org.mapsforge.map.android.util.AndroidUtil;
 import org.mapsforge.map.datastore.MapDataStore;
 import org.mapsforge.map.reader.MapFile;
 import org.mapsforge.map.layer.renderer.TileRendererLayer;
-import org.mapsforge.map.rendertheme.InternalRenderTheme;
+import org.mapsforge.map.android.rendertheme.AssetsRenderTheme;
 
 public final class MainActivity extends Activity {
     private MapView mapView;
@@ -46,7 +46,7 @@ public final class MainActivity extends Activity {
             mapView.getModel().mapViewPosition,
             AndroidGraphicFactory.INSTANCE
         );
-        layer.setXmlRenderTheme(InternalRenderTheme.DEFAULT);
+        layer.setXmlRenderTheme(new AssetsRenderTheme(getAssets(), "", "israel-render-theme.xml"));
         mapView.getLayerManager().getLayers().add(layer);
         setContentView(mapView);
     }
