@@ -32,6 +32,7 @@ import java.util.concurrent.Executors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.mapsforge.core.graphics.Paint;
+import org.mapsforge.core.graphics.Color;
 import org.mapsforge.core.graphics.Style;
 import org.mapsforge.core.model.LatLong;
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory;
@@ -420,7 +421,7 @@ public final class MainActivity extends Activity {
     private void showRoute(RouteResult result) {
         if (routeLine != null) mapView.getLayerManager().getLayers().remove(routeLine);
         Paint paint = AndroidGraphicFactory.INSTANCE.createPaint();
-        paint.setColor(AndroidGraphicFactory.INSTANCE.createColor(0xFF1565C0));
+        paint.setColor(Color.BLUE);
         paint.setStrokeWidth(7 * mapView.getModel().displayModel.getScaleFactor());
         paint.setStyle(Style.STROKE);
         routeLine = new Polyline(paint, AndroidGraphicFactory.INSTANCE);
