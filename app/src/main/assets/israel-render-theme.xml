@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<rendertheme xmlns="http://mapsforge.org/renderTheme" version="6" map-background="#F4F1E8">
+<rendertheme xmlns="http://mapsforge.org/renderTheme" version="5" map-background="#F4F1E8">
   <rule e="way" k="natural" v="water|sea"><area fill="#A9D6EA"/></rule>
   <rule e="way" k="natural" v="wood|forest"><area fill="#B8D5AD"/></rule>
   <rule e="way" k="landuse" v="forest|grass|meadow|orchard"><area fill="#D6E5C6"/></rule>
