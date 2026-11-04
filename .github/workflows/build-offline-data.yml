@@ -2,6 +2,9 @@ name: Build offline Israel map data
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/build-offline-data.yml'
 
 permissions:
   contents: read
