@@ -225,7 +225,7 @@ public final class MainActivity extends Activity {
         searchResults = new LinearLayout(this);
         searchResults.setOrientation(LinearLayout.VERTICAL);
         resultsScroll.addView(searchResults);
-        root.addView(resultsScroll, new LinearLayout.LayoutParams(-1, 0));
+        root.addView(resultsScroll, new LinearLayout.LayoutParams(-1, dp(136)));
 
         mapView = new MapView(this);
         mapView.setClickable(true);
@@ -253,7 +253,7 @@ public final class MainActivity extends Activity {
         setContentView(root);
     }
 
-    private void cycleProfile() {
+    private int dp(float value) { return (int) (value * getResources().getDisplayMetrics().density + 0.5f); }\n\n    private void cycleProfile() {
         if ("car".equals(routeProfile)) { routeProfile = "foot"; profileButton.setText("הליכה"); }
         else if ("foot".equals(routeProfile)) { routeProfile = "bike"; profileButton.setText("אופניים"); }
         else { routeProfile = "car"; profileButton.setText("רכב"); }
