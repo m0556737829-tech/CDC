@@ -20,6 +20,12 @@ jobs:
           curl -L --fail --retry 3 "https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf" -o work/israel-and-palestine.osm.pbf
           test -s work/israel-and-palestine.osm.pbf
 
+      - name: Build offline search and routing database
+        run: |
+          python -m pip install --disable-pip-version-check osmium
+          python scripts/build_offline_data.py work/israel-and-palestine.osm.pbf work/israel-data.db
+          ls -lh work/israel-data.db
+
       - name: Install Osmosis
         run: |
           curl -L --fail --retry 3 "https://github.com/openstreetmap/osmosis/releases/download/0.49.2/osmosis-0.49.2.zip" -o osmosis.zip
@@ -50,10 +56,10 @@ jobs:
           Attribution: © OpenStreetMap contributors.
           Data extract: current Geofabrik israel-and-palestine-latest extract at build time.
           Map format: Mapsforge vector map.
-          This archive contains the map display data only. Search index and offline routing graph are separate components and are not included in this package yet.
+          This archive contains the vector map, a local Hebrew-capable place search index, and an offline road graph. Routing is still an experimental graph component and requires the matching Android routing interface before it can be used for turn-by-turn navigation.
           EOF
           cd work
-          zip -9 -q israel-offline-map.zip israel.map README-data.txt
+          zip -9 -q israel-offline-map.zip israel.map israel-data.db README-data.txt
           sha256sum israel-offline-map.zip > israel-offline-map.zip.sha256
           ls -lh israel-offline-map.zip israel-offline-map.zip.sha256
 
