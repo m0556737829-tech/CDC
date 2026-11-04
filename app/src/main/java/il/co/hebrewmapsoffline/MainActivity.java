@@ -11,6 +11,8 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.database.Cursor;
+import android.provider.OpenableColumns;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -105,10 +107,10 @@ public final class MainActivity extends Activity {
         File target = mapFile();
         File dir = target.getParentFile();
         if (!dir.exists() && !dir.mkdirs()) throw new Exception("לא ניתן ליצור תיקיית מפות");
-        String name = getContentResolver().getType(uri);
+        String name = displayName(uri).toLowerCase();
         try (InputStream raw = getContentResolver().openInputStream(uri)) {
             if (raw == null) throw new Exception("הקובץ לא נפתח");
-            if (name != null && name.contains("zip")) {
+            if (name.endsWith(".zip")) {
                 boolean found = false;
                 try (ZipInputStream zip = new ZipInputStream(raw)) {
                     ZipEntry entry;
@@ -133,7 +135,7 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private void copy(InputStream in, File out) throws Exception {
+    private String displayName(Uri uri) {\n        try (Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {\n            if (cursor != null && cursor.moveToFirst()) {\n                int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);\n                if (index >= 0) return cursor.getString(index);\n            }\n        } catch (Exception ignored) {}\n        return uri.getLastPathSegment() == null ? "map.data" : uri.getLastPathSegment();\n    }\n\n    private void copy(InputStream in, File out) throws Exception {
         try (FileOutputStream stream = new FileOutputStream(out)) {
             byte[] buffer = new byte[64 * 1024];
             int count;
