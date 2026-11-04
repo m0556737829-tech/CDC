@@ -1,0 +1,64 @@
+name: Build offline Israel map data
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-map-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Download OpenStreetMap Israel and Palestine extract
+        run: |
+          mkdir -p work ~/.openstreetmap/osmosis/plugins
+          curl -L --fail --retry 3 "https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf" -o work/israel-and-palestine.osm.pbf
+          test -s work/israel-and-palestine.osm.pbf
+
+      - name: Install Osmosis
+        run: |
+          curl -L --fail --retry 3 "https://github.com/openstreetmap/osmosis/releases/download/0.49.2/osmosis-0.49.2.zip" -o osmosis.zip
+          unzip -q osmosis.zip -d osmosis-dist
+          find osmosis-dist -type f -name osmosis -print -quit | grep -q .
+
+      - name: Install Mapsforge map writer plugin
+        run: |
+          curl -L --fail --retry 3 "https://github.com/mapsforge/mapsforge/releases/download/0.31.0/mapsforge-map-writer-0.31.0-jar-with-dependencies.jar" -o ~/.openstreetmap/osmosis/plugins/mapsforge-map-writer.jar
+          test -s ~/.openstreetmap/osmosis/plugins/mapsforge-map-writer.jar
+
+      - name: Convert OSM data to compact vector map
+        env:
+          JAVACMD_OPTIONS: -Xmx6G
+        run: |
+          OSMOSIS="$(find "$PWD/osmosis-dist" -type f -path '*/bin/osmosis' -print -quit)"
+          chmod +x "$OSMOSIS"
+          "$OSMOSIS" --rb file="$PWD/work/israel-and-palestine.osm.pbf" --mw file="$PWD/work/israel.map" type=hd map-start-position=31.7683,35.2137 map-start-zoom=7
+          test -s work/israel.map
+          ls -lh work/israel.map
+
+      - name: Package map and attribution
+        run: |
+          cat > work/README-data.txt <<'EOF'
+          Offline map data for Israel and Palestine
+          Source: OpenStreetMap contributors, extract supplied by Geofabrik.
+          License: Open Database License (ODbL) 1.0.
+          Attribution: © OpenStreetMap contributors.
+          Data extract: current Geofabrik israel-and-palestine-latest extract at build time.
+          Map format: Mapsforge vector map.
+          This archive contains the map display data only. Search index and offline routing graph are separate components and are not included in this package yet.
+          EOF
+          cd work
+          zip -9 -q israel-offline-map.zip israel.map README-data.txt
+          sha256sum israel-offline-map.zip > israel-offline-map.zip.sha256
+          ls -lh israel-offline-map.zip israel-offline-map.zip.sha256
+
+      - name: Upload offline map data
+        uses: actions/upload-artifact@v4
+        with:
+          name: israel-offline-map-data
+          path: |
+            work/israel-offline-map.zip
+            work/israel-offline-map.zip.sha256
+          retention-days: 30
