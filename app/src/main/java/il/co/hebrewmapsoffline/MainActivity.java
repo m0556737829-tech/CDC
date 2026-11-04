@@ -2,17 +2,16 @@ package il.co.hebrewmapsoffline;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
 import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.database.Cursor;
-import android.provider.OpenableColumns;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -29,7 +28,6 @@ import org.mapsforge.map.android.rendertheme.AssetsRenderTheme;
 public final class MainActivity extends Activity {
     private static final int PICK_MAP_DATA = 4102;
     private MapView mapView;
-    private LinearLayout root;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -46,7 +44,7 @@ public final class MainActivity extends Activity {
             showOfflineMap(mapFile());
             return;
         }
-        root = new LinearLayout(this);
+        LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER);
         root.setPadding(32, 32, 32, 32);
@@ -61,7 +59,7 @@ public final class MainActivity extends Activity {
         root.addView(title, new LinearLayout.LayoutParams(-1, -2));
 
         TextView description = new TextView(this);
-        description.setText("מפת ישראל נשמרת במכשיר ופועלת ללא חיבור לאינטרנט.\n\nכדי להתחיל, יש לייבא את קובץ המפה המקומי (israel.map) או חבילת ZIP שמכילה אותו.");
+        description.setText("מפת ישראל נשמרת במכשיר ופועלת ללא חיבור לאינטרנט.\n\nכדי להתחיל, יש לייבא קובץ מפה מקומי (israel.map) או חבילת ZIP שמכילה אותו.");
         description.setTextSize(17);
         description.setTextColor(0xFF34495E);
         description.setGravity(Gravity.CENTER);
@@ -74,7 +72,7 @@ public final class MainActivity extends Activity {
         root.addView(importButton, new LinearLayout.LayoutParams(-1, -2));
 
         TextView note = new TextView(this);
-        note.setText("הערה: גרסה זו כוללת את מנוע הצגת המפה וייבוא הנתונים. חיפוש כתובות וניווט מסלולים יופעלו לאחר הוספת מסד החיפוש ונתוני הניתוב לחבילת ישראל.");
+        note.setText("הגרסה הנוכחית כוללת מנוע הצגת מפה וייבוא נתונים. חיפוש כתובות וניווט מסלולים יתווספו יחד עם מסד החיפוש ונתוני הניתוב.");
         note.setTextSize(13);
         note.setTextColor(0xFF657786);
         note.setGravity(Gravity.CENTER);
@@ -99,7 +97,7 @@ public final class MainActivity extends Activity {
             Toast.makeText(this, "המפה נשמרה במכשיר", Toast.LENGTH_LONG).show();
             showHome();
         } catch (Exception e) {
-            Toast.makeText(this, "לא הצלחתי לייבא את הקובץ: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "ייבוא הקובץ נכשל: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -127,15 +125,29 @@ public final class MainActivity extends Activity {
                 copy(raw, target);
             }
         }
-        try (MapFile check = new MapFile(target)) {
+        MapFile check = null;
+        try {
+            check = new MapFile(target);
             if (check.getMapFileInfo() == null) throw new Exception("קובץ מפה לא תקין");
         } catch (Exception e) {
             target.delete();
             throw e;
+        } finally {
+            if (check != null) check.close();
         }
     }
 
-    private String displayName(Uri uri) {\n        try (Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {\n            if (cursor != null && cursor.moveToFirst()) {\n                int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);\n                if (index >= 0) return cursor.getString(index);\n            }\n        } catch (Exception ignored) {}\n        return uri.getLastPathSegment() == null ? "map.data" : uri.getLastPathSegment();\n    }\n\n    private void copy(InputStream in, File out) throws Exception {
+    private String displayName(Uri uri) {
+        try (Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (index >= 0) return cursor.getString(index);
+            }
+        } catch (Exception ignored) { }
+        return uri.getLastPathSegment() == null ? "map.data" : uri.getLastPathSegment();
+    }
+
+    private void copy(InputStream in, File out) throws Exception {
         try (FileOutputStream stream = new FileOutputStream(out)) {
             byte[] buffer = new byte[64 * 1024];
             int count;
