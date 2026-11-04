@@ -253,7 +253,9 @@ public final class MainActivity extends Activity {
         setContentView(root);
     }
 
-    private int dp(float value) { return (int) (value * getResources().getDisplayMetrics().density + 0.5f); }\n\n    private void cycleProfile() {
+    private int dp(float value) { return (int) (value * getResources().getDisplayMetrics().density + 0.5f); }
+
+    private void cycleProfile() {
         if ("car".equals(routeProfile)) { routeProfile = "foot"; profileButton.setText("הליכה"); }
         else if ("foot".equals(routeProfile)) { routeProfile = "bike"; profileButton.setText("אופניים"); }
         else { routeProfile = "car"; profileButton.setText("רכב"); }
