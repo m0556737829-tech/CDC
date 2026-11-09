@@ -15,6 +15,8 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            // Signed with the debug key for direct testing/sideloading; create a private release key for store distribution.
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
