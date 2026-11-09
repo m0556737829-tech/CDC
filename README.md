@@ -28,10 +28,10 @@
 5. לאחר הייבוא, המפה והחיפוש פועלים מקומית.
 
 ## מגבלות שחשוב להכיר
-- מנוע המסלולים הנוכחי הוא אב-טיפוס של חיפוש מסלול קצר בגרף; הוא עדיין לא תחליף לניווט מקצועי עם הוראות פנייה, הגבלות פנייה מלאות, תנועה בזמן אמת או הנחיות קוליות.
+- מנוע המסלולים וההנחיות הקוליות הם אב-טיפוס: הוראות הפנייה נגזרות משינויי כיוון בגאומטריית המסלול, ולא משמות רחובות או מהוראות ניווט מאומתות. אין עדיין טיפול מלא בהגבלות פנייה, כבישים חסומים, נתיבים, עומסי תנועה, סטייה מהמסלול או חישוב מסלול מחדש. אין להשתמש בו כתחליף לניווט מקצועי בנהיגה.
 - יש לבדוק בפועל מסלולים, חיפוש וכיסוי מפה על מכשיר לפני שימוש לנסיעה.
 - נתוני המפה מבוססים על OpenStreetMap ומתעדכנים בעת הרצת workflow.
 - המקור הוא OpenStreetMap contributors, דרך Geofabrik. הנתונים כפופים ל-ODbL 1.0. יש להציג ייחוס: © OpenStreetMap contributors.
 
 ## Build
-GitHub Actions builds a debug APK on push or manual dispatch. This is a development build, not a signed Play Store release.
+GitHub Actions builds Debug and Release APKs on push or manual dispatch. The Release APK is signed with the temporary Android debug key for direct installation/testing; it is not signed with a private production key and is not ready for Play Store publication.
