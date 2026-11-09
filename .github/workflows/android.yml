@@ -27,12 +27,19 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME"
           test -d "$ANDROID_HOME/platform-tools"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-      - name: Build debug APK
-        run: gradle --no-daemon assembleDebug
-      - name: Upload APK
+      - name: Build debug and release APKs
+        run: gradle --no-daemon assembleDebug assembleRelease
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: hebrew-maps-android-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: hebrew-maps-android-release
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
