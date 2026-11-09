@@ -1,6 +1,13 @@
 package il.co.hebrewmapsoffline;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.speech.tts.TextToSpeech;
+import java.util.Locale;
 import android.content.Intent;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -55,10 +62,27 @@ public final class MainActivity extends Activity {
     private TextView routeStatus;
     private Button profileButton;
     private String routeProfile = "car";
+    private TextToSpeech speech;
+    private LocationManager locationManager;
+    private LocationListener gpsListener;
+    private Button voiceButton;
+    private final List<NavStep> navSteps = new ArrayList<>();
+    private int nextNavStep = 0;
+    private boolean preannounced = false;
+    private boolean voiceActive = false;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         AndroidGraphicFactory.createInstance(getApplication());
+        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        speech = new TextToSpeech(this, status -> {
+            if (status == TextToSpeech.SUCCESS) {
+                int languageStatus = speech.setLanguage(new Locale("he", "IL"));
+                if (languageStatus == TextToSpeech.LANG_MISSING_DATA || languageStatus == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    runOnUiThread(() -> Toast.makeText(this, "מנוע ההקראה במכשיר אינו תומך בעברית. אפשר להתקין קול עברי בהגדרות Android.", Toast.LENGTH_LONG).show());
+                }
+            }
+        });
         showHome();
     }
 
@@ -206,6 +230,14 @@ public final class MainActivity extends Activity {
         routeStatus.setGravity(Gravity.CENTER_VERTICAL);
         routeStatus.setTextSize(12);
         profileRow.addView(routeStatus, new LinearLayout.LayoutParams(0, 42, 1f));
+        voiceButton = new Button(this);
+        voiceButton.setText("התחל ניווט קולי");
+        voiceButton.setTextSize(11);
+        voiceButton.setOnClickListener(v -> {
+            if (voiceActive) stopVoiceNavigation();
+            else startVoiceNavigation();
+        });
+        profileRow.addView(voiceButton, new LinearLayout.LayoutParams(-2, 42));
         root.addView(profileRow, new LinearLayout.LayoutParams(-1, -2));
 
         LinearLayout searchBar = new LinearLayout(this);
@@ -421,6 +453,8 @@ public final class MainActivity extends Activity {
     }
 
     private void showRoute(RouteResult result) {
+        stopVoiceNavigation();
+        buildNavigationSteps(result.points);
         if (routeLine != null) mapView.getLayerManager().getLayers().remove(routeLine);
         Paint paint = AndroidGraphicFactory.INSTANCE.createPaint();
         paint.setColor(Color.BLUE);
@@ -435,6 +469,127 @@ public final class MainActivity extends Activity {
             mapView.getModel().mapViewPosition.setZoomLevel((byte) 11);
         }
         routeStatus.setText("מסלול אופליין: " + String.format(java.util.Locale.US, "%.1f", result.distance/1000d) + " ק״מ · " + result.points.size() + " נקודות");
+    }
+
+
+    private void buildNavigationSteps(List<LatLong> points) {
+        navSteps.clear();
+        nextNavStep = 0;
+        preannounced = false;
+        if (points == null || points.size() < 2) return;
+        double accumulated = 0;
+        double lastStepDistance = 0;
+        double previousBearing = bearing(points.get(0), points.get(1));
+        for (int i = 2; i < points.size(); i++) {
+            LatLong a = points.get(i - 2), b = points.get(i - 1), c = points.get(i);
+            accumulated += distance(a.latitude, a.longitude, b.latitude, b.longitude);
+            double currentBearing = bearing(b, c);
+            double delta = normalizeAngle(currentBearing - previousBearing);
+            if (Math.abs(delta) >= 35 && accumulated - lastStepDistance >= 45) {
+                String turn = delta > 0 ? "ימינה" : "שמאלה";
+                navSteps.add(new NavStep(c.latitude, c.longitude, "פנה " + turn));
+                lastStepDistance = accumulated;
+            }
+            previousBearing = currentBearing;
+        }
+        navSteps.add(new NavStep(points.get(points.size()-1).latitude, points.get(points.size()-1).longitude, "הגעת ליעד"));
+    }
+
+    private double bearing(LatLong a, LatLong b) {
+        double lat1 = Math.toRadians(a.latitude), lat2 = Math.toRadians(b.latitude);
+        double dLon = Math.toRadians(b.longitude - a.longitude);
+        double y = Math.sin(dLon) * Math.cos(lat2);
+        double x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+        return (Math.toDegrees(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    private double normalizeAngle(double angle) {
+        while (angle > 180) angle -= 360;
+        while (angle < -180) angle += 360;
+        return angle;
+    }
+
+    private void startVoiceNavigation() {
+        if (navSteps.isEmpty()) {
+            Toast.makeText(this, "תחילה יש לחשב מסלול", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 7201);
+            return;
+        }
+        if (speech == null) {
+            Toast.makeText(this, "מנוע ההקראה עדיין נטען", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            voiceActive = true;
+            voiceButton.setText("עצור ניווט קולי");
+            speak("הניווט התחיל. " + navSteps.get(0).instruction);
+            gpsListener = new LocationListener() {
+                @Override public void onLocationChanged(Location location) { updateVoiceNavigation(location); }
+                @Override public void onProviderEnabled(String provider) { }
+                @Override public void onProviderDisabled(String provider) {
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "שירות המיקום כבוי", Toast.LENGTH_LONG).show());
+                }
+            };
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2500, 5, gpsListener);
+        } catch (SecurityException e) {
+            voiceActive = false;
+            voiceButton.setText("התחל ניווט קולי");
+            Toast.makeText(this, "אין הרשאת מיקום", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            voiceActive = false;
+            voiceButton.setText("התחל ניווט קולי");
+            Toast.makeText(this, "לא ניתן להתחיל ניווט: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void updateVoiceNavigation(Location location) {
+        if (!voiceActive || nextNavStep >= navSteps.size()) return;
+        NavStep step = navSteps.get(nextNavStep);
+        double meters = distance(location.getLatitude(), location.getLongitude(), step.lat, step.lon);
+        if (meters <= 45) {
+            if (nextNavStep == navSteps.size() - 1) {
+                speak("הגעת ליעד");
+                stopVoiceNavigation();
+                return;
+            }
+            speak(step.instruction);
+            nextNavStep++;
+            preannounced = false;
+        } else if (meters <= 350 && !preannounced) {
+            speak("בעוד " + Math.max(50, (int)(Math.round(meters / 50.0) * 50)) + " מטר, " + step.instruction);
+            preannounced = true;
+        }
+    }
+
+    private void speak(String message) {
+        if (speech != null) speech.speak(message, TextToSpeech.QUEUE_FLUSH, null, "nav-" + System.currentTimeMillis());
+    }
+
+    private void stopVoiceNavigation() {
+        voiceActive = false;
+        if (locationManager != null && gpsListener != null) {
+            try { locationManager.removeUpdates(gpsListener); } catch (SecurityException ignored) { }
+            gpsListener = null;
+        }
+        if (voiceButton != null) voiceButton.setText("התחל ניווט קולי");
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 7201 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            startVoiceNavigation();
+        } else if (requestCode == 7201) {
+            Toast.makeText(this, "כדי להפעיל ניווט קולי נדרשת הרשאת מיקום בזמן השימוש", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private static final class NavStep {
+        final double lat, lon;
+        final String instruction;
+        NavStep(double lat, double lon, String instruction) { this.lat=lat; this.lon=lon; this.instruction=instruction; }
     }
 
     private static final class SearchHit {
@@ -455,6 +610,8 @@ public final class MainActivity extends Activity {
     }
 
     @Override protected void onDestroy() {
+        stopVoiceNavigation();
+        if (speech != null) { speech.stop(); speech.shutdown(); }
         if (mapView != null) mapView.destroyAll();
         if (mapStore != null) mapStore.close();
         searchExecutor.shutdownNow();
